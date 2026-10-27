@@ -7,25 +7,18 @@ not a project reference or a local package source.
 
 Producer: https://github.com/octoana/private-nuget-demo-producer
 
-## Current phase: automatic submission baseline
+## Automatic submission baseline: confirmed
 
-The producer publishes version `1.0.0` to GitHub Packages. This consumer
-intentionally has **no manual dependency-submission workflow**, no Dependabot
-version-update configuration, and no committed registry credentials.
+The producer publishes version `1.0.0` to GitHub Packages. The initial automatic
+submission test ran without consumer credentials or a package-access grant.
+[The automatic run](https://github.com/octoana/dependedabot_dependency_submission_private_registry/actions/runs/40595029062)
+failed during restore with **401 Unauthorized** from the private NuGet feed.
 
 The root-level `PrivateFeedDemo.sln` references the app under `src/PrivateFeedDemo`.
 GitHub's .NET automatic submission requires a supported manifest at the repository
 root, or a Dependabot configuration declaring NuGet. The solution provides that
-discovery entry point without introducing a manual submission workflow.
-
-Enable and test GitHub's automatic dependency submission separately through
-repository settings. Inspect the automatic job's logs to determine whether it
-fails to restore the private package. Failure is a test hypothesis, not a
-guaranteed outcome: available authentication and organization settings can affect
-the result.
-
-Do not grant this consumer repository package access or add registry credentials
-for this initial test. The NuGet feed URL alone does not grant access.
+discovery entry point. Disable automatic dependency submission before proceeding
+with the manual test below.
 
 Static manifest analysis may already show the direct package reference in the
 dependency graph. Its presence does not prove that automatic submission restored
@@ -62,16 +55,58 @@ The feed intentionally contains only this private package source. Package-source
 mapping limits it to `Octoana.DependencySubmissionDemo.*`; if adding other
 dependencies, configure their sources and mappings explicitly.
 
-## Later phase: manual submission (not configured)
+## Current phase: manual submission with authenticated restore
 
-Only after the automatic-submission test is confirmed, add a manual workflow
-that explicitly configures the feed URL and authenticates using GitHub Actions
-secrets. It should restore, build, run the self-test, and submit the resolved
-NuGet dependencies. Never put literal credentials in the workflow.
+The [manual workflow](.github/workflows/dependency-submission.yml) runs only via
+**Actions > Manual NuGet dependency submission > Run workflow**. Select `main`.
+It does not run on pushes or pull requests.
 
-Verify both the workflow logs and the submitted dependency source in
-**Insights > Dependency graph**. Dependabot version-update PRs and vulnerability
-alerts are separate tests and are not needed for this scenario.
+### Configure credentials
+
+1. Create a GitHub **personal access token (classic)** with `read:packages`.
+   The token owner must have read access to the private package. Authorize the
+   token for the octoana organization's SSO if required, and ensure organization
+   token policies permit it. Use a short expiration; no publishing or deletion
+   scopes are needed.
+2. In this **consumer** repository, open **Settings > Secrets and variables >
+   Actions**.
+3. Under **Secrets**, add a repository secret named `NUGET_READ_TOKEN` containing
+   the PAT. Do not store it under Variables or paste it into source code/chat.
+4. Under **Variables**, add `NUGET_USERNAME` containing the PAT owner's GitHub
+   login, not the organization name unless that is actually the user's login.
+
+The workflow explicitly configures
+`https://nuget.pkg.github.com/octoana/index.json` as the `github` source, then
+supplies NuGet credentials through a step-scoped environment variable. It does
+not write the PAT to NuGet.Config. No consumer **Manage Actions access** grant is
+needed for this PAT-based test, provided the PAT owner can read the package.
+
+The PAT is used **only for package restore**. Dependency submission uses the
+workflow's built-in `GITHUB_TOKEN` with `contents: write`; it does not use the PAT.
+Keep dependency graph enabled. Organization Actions policies must allow the
+pinned checkout, setup-dotnet, and Advanced Security submission actions.
+
+### Execute and verify
+
+After adding the variable and secret, run the workflow. Confirm these steps pass:
+
+1. Authenticated restore from GitHub Packages.
+2. Release build and the app's self-test.
+3. Advanced Security Component Detection submission of resolved NuGet dependencies.
+
+Then open **Insights > Dependency graph** and confirm
+`Octoana.DependencySubmissionDemo.Greetings` version `1.0.0`, inspecting the
+submitted source rather than relying on a statically detected package reference.
+The submission correlator is `private-nuget-manual`; the action is configured to
+fail if it detects no resolved dependencies.
+
+Missing credentials produce an explicit setup error. A 401/403 during restore
+means the token, its scopes, SSO authorization, or package access needs attention.
+Do not treat the workflow as validated until the authenticated run and submission
+have succeeded.
+
+Dependabot version-update PRs and vulnerability alerts are separate tests and are
+not configured here.
 
 ## Setup history
 

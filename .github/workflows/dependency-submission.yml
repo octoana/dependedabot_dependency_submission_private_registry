@@ -1,0 +1,48 @@
+name: Manual NuGet dependency submission
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dependency-submission:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Configure private NuGet feed
+        run: >-
+          dotnet nuget update source github
+          --source https://nuget.pkg.github.com/octoana/index.json
+          --configfile NuGet.Config
+      - name: Restore using private feed credentials
+        env:
+          NUGET_USERNAME: ${{ vars.NUGET_USERNAME }}
+          NUGET_READ_TOKEN: ${{ secrets.NUGET_READ_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$NUGET_USERNAME" || -z "$NUGET_READ_TOKEN" ]]; then
+            echo "::error::Set the NUGET_USERNAME Actions variable and NUGET_READ_TOKEN Actions secret before running this workflow."
+            exit 1
+          fi
+          export NuGetPackageSourceCredentials_github="Username=$NUGET_USERNAME;Password=$NUGET_READ_TOKEN;ValidAuthenticationTypes=Basic"
+          dotnet restore PrivateFeedDemo.sln --configfile NuGet.Config --no-http-cache
+      - name: Build
+        run: dotnet build PrivateFeedDemo.sln --configuration Release --no-restore
+      - name: Exercise private package
+        run: |
+          dotnet run --project src/PrivateFeedDemo --configuration Release --no-build
+          dotnet run --project src/PrivateFeedDemo --configuration Release --no-build -- --self-test
+      - name: Submit resolved NuGet dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0 # v0.2.0
+        with:
+          token: ${{ github.token }}
+          filePath: src/PrivateFeedDemo
+          detectorsCategories: NuGet
+          fail-on-empty: 'true'
+          correlator: private-nuget-manual
