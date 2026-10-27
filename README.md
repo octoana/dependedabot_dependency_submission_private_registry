@@ -7,24 +7,24 @@ not a project reference or a local package source.
 
 Producer: https://github.com/octoana/private-nuget-demo-producer
 
-## One-time setup
+## Current phase: automatic submission baseline
 
-1. In the producer, run **Actions > Publish private NuGet package** with `1.0.0`.
-2. On the published package, open **Package settings > Manage Actions access**.
-   Add this consumer repository with **Read** access. Keep package visibility
-   **Private**. This grants access to the consumer's Actions and Dependabot jobs;
-   repository membership alone is not a substitute for this grant.
-3. Ensure the consumer's dependency graph is enabled in its repository settings.
-4. Run **Actions > Build and submit dependencies** here.
+The producer publishes version `1.0.0` to GitHub Packages. This consumer
+intentionally has **no manual dependency-submission workflow**, no Dependabot
+version-update configuration, and no committed registry credentials.
 
-The workflow restores using `GITHUB_TOKEN` with `packages: read`, builds, runs a
-greeting and a self-test, and submits the resolved NuGet dependency graph using
-Component Detection. Submission requires `contents: write`. It runs only on
-`main` pushes or manual dispatch, not untrusted pull requests.
+Enable and test GitHub's automatic dependency submission separately through
+repository settings. Inspect the automatic job's logs to determine whether it
+fails to restore the private package. Failure is a test hypothesis, not a
+guaranteed outcome: available authentication and organization settings can affect
+the result.
 
-No long-lived feed credentials are committed or required by these workflows.
-Organization policies must allow Actions, the pinned actions used here, package
-publishing, and dependency submission.
+Do not grant this consumer repository package access or add registry credentials
+for this initial test. The NuGet feed URL alone does not grant access.
+
+Static manifest analysis may already show the direct package reference in the
+dependency graph. Its presence does not prove that automatic submission restored
+the package or submitted a resolved dependency snapshot.
 
 ## Run locally
 
@@ -53,31 +53,28 @@ Hello, GitHub, from a private NuGet package!
 PASS: private package greeting and input validation.
 ```
 
-## Verify dependency submission
-
-After a successful run, open **Insights > Dependency graph**. Confirm that
-`Octoana.DependencySubmissionDemo.Greetings` at `1.0.0` is present and inspect
-the submitted dependency source. A successful build alone does not prove that
-submission succeeded.
-
 The feed intentionally contains only this private package source. Package-source
 mapping limits it to `Octoana.DependencySubmissionDemo.*`; if adding other
 dependencies, configure their sources and mappings explicitly.
 
-## Test Dependabot later
+## Later phase: manual submission (not configured)
 
-Publish `1.0.1` using the producer workflow, leaving this app on `1.0.0`.
-In this repository's Dependabot view, request an update check. Expect a PR
-updating the package reference.
+Only after the automatic-submission test is confirmed, add a manual workflow
+that explicitly configures the feed URL and authenticates using GitHub Actions
+secrets. It should restore, build, run the self-test, and submit the resolved
+NuGet dependencies. Never put literal credentials in the workflow.
 
-Dependabot uses the package's **Manage Actions access** grant for GitHub-hosted
-registry authentication; the configuration therefore contains no PAT or
-top-level registry credentials. If your deployment does not support automatic
-access, follow GitHub's private registry configuration documentation instead.
+Verify both the workflow logs and the submitted dependency source in
+**Insights > Dependency graph**. Dependabot version-update PRs and vulnerability
+alerts are separate tests and are not needed for this scenario.
 
-Dependency submission populates the dependency graph; Dependabot version updates
-open update PRs. This custom package has no published security advisory, so this
-test does not by itself produce vulnerability alerts.
+## Setup history
+
+An initial setup mistakenly included a manual submission workflow and Dependabot
+configuration. Both were removed for the automatic-submission baseline. The
+initial manual workflow failed; it was not a test of automatic submission.
+Earlier workflow runs remain in Actions history and should not be confused with
+the new baseline test.
 
 ## References
 
