@@ -13,6 +13,11 @@ The producer publishes version `1.0.0` to GitHub Packages. This consumer
 intentionally has **no manual dependency-submission workflow**, no Dependabot
 version-update configuration, and no committed registry credentials.
 
+The root-level `PrivateFeedDemo.sln` references the app under `src/PrivateFeedDemo`.
+GitHub's .NET automatic submission requires a supported manifest at the repository
+root, or a Dependabot configuration declaring NuGet. The solution provides that
+discovery entry point without introducing a manual submission workflow.
+
 Enable and test GitHub's automatic dependency submission separately through
 repository settings. Inspect the automatic job's logs to determine whether it
 fails to restore the private package. Failure is a test hypothesis, not a
@@ -80,4 +85,5 @@ the new baseline test.
 
 - [GitHub Packages NuGet registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry)
 - [Dependency submission API](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/use-dependency-submission-api)
+- [.NET automatic submission requirements](https://docs.github.com/en/code-security/reference/supply-chain-security/automatic-dependency-submission#net-projects)
 - [Dependabot private registry access](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/configure-access-to-private-registries)
