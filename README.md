@@ -1,7 +1,7 @@
 # Private NuGet dependency submission demo
 
 A .NET 10 console app that consumes
-`Octoana.DependencySubmissionDemo.Greetings` version `1.0.0` from the private
+`Octoana.DependencySubmissionDemo.Greetings` version `1.1.0` from the private
 **octoana organization** GitHub Packages feed. It uses a real `PackageReference`,
 not a project reference or a local package source.
 
@@ -48,12 +48,26 @@ Expected output:
 
 ```text
 Hello, GitHub, from a private NuGet package!
-PASS: private package greeting and input validation.
+PASS: private package greeting, input validation, and transitive dependencies.
 ```
 
-The feed intentionally contains only this private package source. Package-source
-mapping limits it to `Octoana.DependencySubmissionDemo.*`; if adding other
-dependencies, configure their sources and mappings explicitly.
+Package-source mapping limits GitHub Packages to `Octoana.DependencySubmissionDemo.*`.
+The public dependencies `Humanizer.Core` and `Newtonsoft.Json` are explicitly
+mapped to nuget.org. If adding other dependencies, extend these mappings.
+
+## Transitive dependency graph
+
+```text
+PrivateFeedDemo
+└── Octoana.DependencySubmissionDemo.Greetings 1.1.0 (direct, private)
+    ├── Humanizer.Core 3.0.10 (transitive, public)
+    └── Newtonsoft.Json 13.0.4 (transitive, public)
+```
+
+Only the private package is a `PackageReference` in this app. The public
+dependencies come from its published package metadata. The self-test calls
+`Greeter.GreetAsJson("Ada")`, exercising Humanizer's number-to-words conversion
+and Newtonsoft.Json serialization through the private package.
 
 ## Current phase: manual submission with authenticated restore
 
@@ -91,11 +105,13 @@ pinned checkout, setup-dotnet, and Advanced Security submission actions.
 After adding the variable and secret, run the workflow. Confirm these steps pass:
 
 1. Authenticated restore from GitHub Packages.
-2. Release build and the app's self-test.
+2. Verification of one direct private package and its two resolved public
+   dependencies, followed by the release build and the app's self-test.
 3. Advanced Security Component Detection submission of resolved NuGet dependencies.
 
 Then open **Insights > Dependency graph** and confirm
-`Octoana.DependencySubmissionDemo.Greetings` version `1.0.0`, inspecting the
+`Octoana.DependencySubmissionDemo.Greetings` version `1.1.0`, plus `Humanizer.Core`
+`3.0.10` and `Newtonsoft.Json` `13.0.4` as transitive dependencies, inspecting the
 submitted source rather than relying on a statically detected package reference.
 The submission correlator is `private-nuget-manual`; the action is configured to
 fail if it detects no resolved dependencies.

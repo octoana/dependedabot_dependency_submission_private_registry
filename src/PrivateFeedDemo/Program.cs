@@ -27,7 +27,13 @@ if (args is ["--self-test"])
         }
     }
 
-    Console.WriteLine("PASS: private package greeting and input validation.");
+    const string expectedJson = "{\"Message\":\"Hello, Ada, from a private NuGet package!\",\"NameLength\":\"three\"}";
+    if (Greeter.GreetAsJson("Ada") != expectedJson)
+    {
+        throw new InvalidOperationException("The private package's transitive dependencies produced unexpected JSON.");
+    }
+
+    Console.WriteLine("PASS: private package greeting, input validation, and transitive dependencies.");
     return;
 }
 

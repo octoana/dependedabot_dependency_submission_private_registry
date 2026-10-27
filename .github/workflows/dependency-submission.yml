@@ -32,6 +32,17 @@ jobs:
           fi
           export NuGetPackageSourceCredentials_github="Username=$NUGET_USERNAME;Password=$NUGET_READ_TOKEN;ValidAuthenticationTypes=Basic"
           dotnet restore PrivateFeedDemo.sln --configfile NuGet.Config --no-http-cache
+      - name: Verify direct and transitive dependencies
+        shell: bash
+        run: |
+          dotnet list src/PrivateFeedDemo/PrivateFeedDemo.csproj package --include-transitive --no-restore
+          assets=src/PrivateFeedDemo/obj/project.assets.json
+          jq -e '.project.frameworks["net10.0"].dependencies | keys == ["Octoana.DependencySubmissionDemo.Greetings"]' "$assets"
+          jq -e '[.targets[] |
+            .["Octoana.DependencySubmissionDemo.Greetings/1.1.0"].dependencies as $deps |
+            ($deps["Humanizer.Core"] == "3.0.10" and $deps["Newtonsoft.Json"] == "13.0.4"
+              and has("Humanizer.Core/3.0.10") and has("Newtonsoft.Json/13.0.4"))
+          ] | length > 0 and all' "$assets"
       - name: Build
         run: dotnet build PrivateFeedDemo.sln --configuration Release --no-restore
       - name: Exercise private package
